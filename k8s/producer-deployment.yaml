@@ -36,7 +36,7 @@ spec:
         - name: producer-api
           # IMAGE: GitHub Actions tarafından güncellenir
           image: docker.io/sweizn/producer-api:latest
-          imagePullPolicy: Always    # Docker Hub'dan her zaman güncel image çek
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8000

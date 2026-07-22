@@ -25,5 +25,5 @@ spec:
   delivery:
     backoffDelay: PT2S       # 2 saniye retry delay
     backoffPolicy: exponential
-    retry: 3                 # Maksimum 3 retry
-    timeout: PT10S           # 10 saniye timeout
+    retry: 0                 # Maksimum 0 retry
+    timeout: PT30S           # 30 saniye timeout

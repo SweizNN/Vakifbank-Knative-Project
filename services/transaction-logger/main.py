@@ -40,8 +40,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ─── Event Counter ───────────────────────────────────────────────────────────
+# ─── Event Counter & Idempotency ─────────────────────────────────────────────
 event_counter = {"total": 0, "low": 0, "medium": 0}
+seen_events = set() # Broker retry'larını filtrelemek için
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
 @app.post("/", summary="CloudEvent al ve logla")
@@ -69,6 +70,17 @@ async def receive_event(request: Request):
     currency   = data.get("currency", "TRY")
     customer   = data.get("customer_id", "N/A")
     merchant   = data.get("merchant_name", "N/A")
+
+    event_id = event["id"]
+    
+    # ── Idempotency Check (Broker Retry'larını Yoksay) ──
+    if event_id in seen_events:
+        logger.info("Duplicate event ignored: %s", event_id)
+        return PlainTextResponse(content="OK (Duplicate)", status_code=200)
+    seen_events.add(event_id)
+    if len(seen_events) > 1000:
+        seen_events.clear()
+        seen_events.add(event_id)
 
     event_counter["total"] += 1
     if risk_level == "low":    event_counter["low"] += 1

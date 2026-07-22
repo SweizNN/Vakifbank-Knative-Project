@@ -92,7 +92,8 @@ Vakifbank-Knative-Project/
 
 ## 🚀 Hızlı Başlangıç (Minikube)
 
-### Ön Koşullar
+Sistemi ayağa kaldırmak ve test etmek için iki seçeneğiniz vardır: Otomatik veya Manuel.
+Öncelikle aşağıdaki araçların sisteminizde yüklü olduğundan emin olun:
 
 ```bash
 # Versiyon kontrolleri
@@ -101,27 +102,33 @@ kubectl version    # >= 1.28
 docker version     # >= 24
 ```
 
-### 1. Tek Tıkla Kurulum ve İzleme
+---
 
-Projenin tüm bağımlılıklarını kurup ardından logları ve port-forward'ları tek bir ekranda canlı izlemek için hazırladığımız `setup-and-run.sh` scriptini çalıştırın:
+### 🟢 SEÇENEK A: Otomatik Kurulum ve İzleme (Tavsiye Edilen)
 
+Bu yöntem tüm gereksinimleri kurar ve logları izlemek için otomatik olarak 3 yeni terminal (PowerShell) penceresi açar.
+
+**1. Scripti Çalıştırın**
 ```bash
 chmod +x scripts/setup-and-run.sh
-./scripts/setup-and-run.sh
+bash ./scripts/setup-and-run.sh
 ```
 
-Bu script sırasıyla şunları yapar:
-1. Knative Serving ve Eventing bileşenlerini kurar.
-2. Projemize ait (Producer, Frontend, Broker vb.) tüm kaynakları uygular.
-3. Uygulamalara (Frontend:3000 ve Producer:8000) **Port-forward** başlatır.
-4. **Logları ve Pod değişikliklerini** canlı olarak ekrana basar.
+**2. Test Arayüzüne Girin**
+Tarayıcınızda şu adresi açın: `http://localhost:3000`
 
-İşlemi durdurmak istediğinizde `Ctrl + C` tuşlarına basmanız yeterlidir. (Kurulumlar kalıcıdır, sadece izleme durur).
+**3. Logları İzleyin ve Test Edin**
+- Script, logları izlemeniz için 3 ayrı renkli terminal penceresi açacaktır (Terminal A, B ve C).
+- Web sayfasındaki butonlara ("EFT", "Fraud" vb.) tıkladıkça bu pencerelerde logların anlık olarak aktığını göreceksiniz.
+- İşlemi bitirmek için ana terminalde `Ctrl+C` yapabilirsiniz.
 
+*(Not: CI/CD sürecini test etmek istiyorsanız, kodlarınızı GitHub'a push attıktan sonra `bash ./scripts/deploy-local.sh sha-XXXX` komutunu çalıştırarak Kubernetes'i güncelleyebilirsiniz).*
 
-### 2. Manuel Kurulum (Alternatif)
+---
 
-Eğer script kullanmak istemezseniz, aşağıdaki komutları terminalinizde **sırayla** çalıştırarak sistemi manuel olarak da kurabilirsiniz.
+### 🟡 SEÇENEK B: Manuel Kurulum ve Adım Adım Test
+
+Eğer arka planda neler olduğunu görmek ve her şeyi kendi kontrolünüzde (manuel komutlarla) yapmak istiyorsanız bu adımları izleyin.
 
 #### Adım 1 — Minikube Başlatma
 ```bash
@@ -156,30 +163,55 @@ kubectl apply -f k8s/sinkbinding.yaml
 kubectl apply -f k8s/triggers.yaml
 kubectl apply -f k8s/frontend-deployment.yaml
 ```
+
 #### Adım 5 — Port-Forward (Manuel Erişim)
-Terminalde aşağıdaki komutları çalıştırarak arayüzlere erişebilirsiniz. (Her biri için ayrı terminal açmanız gerekebilir veya komutların sonuna `&` ekleyebilirsiniz).
-
+Tarayıcıdan erişmek için yeni bir terminalde çalıştırın (kapatmayın):
 ```bash
-# Frontend arayüzü (localhost:3000)
 kubectl port-forward svc/frontend-service 3000:80 -n banking-system
-
-# Producer API (localhost:8000/api/docs)
 kubectl port-forward svc/producer-api-service 8000:8000 -n banking-system
 ```
+Artık tarayıcıdan `http://localhost:3000` adresine girebilirsiniz.
 
-#### Adım 6 — Log İzleme
-Servislerin loglarını ve podların otomatik oluşturulup silinmesini (scale-to-zero) izlemek için ayrı terminallerde şu komutları kullanabilirsiniz:
+#### Adım 6 — Manuel Log İzleme (3 Terminal)
+Test sırasında aynı anda üç ayrı terminal penceresi açın:
 
+**Terminal A — Pod değişimlerini canlı izle (Scale-to-Zero):**
 ```bash
-# Scale-to-zero pod değişimlerini canlı izle
 kubectl get pods -n banking-system -w
-
-# Standart/Orta riskli işlemleri loglayan servis
+```
+**Terminal B — Standart işlem logları (TX Logger):**
+```bash
 kubectl logs -n banking-system -l serving.knative.dev/service=transaction-logger-service --prefix -f
-
-# Yüksek/Kritik riskli işlemleri (Fraud) loglayan servis
+```
+**Terminal C — Fraud uyarı logları:**
+```bash
 kubectl logs -n banking-system -l serving.knative.dev/service=fraud-alert-service --prefix -f
 ```
+
+---
+
+## 🧪 Test Senaryoları (İki Kurulum İçin de Geçerlidir)
+
+Arayüz (`http://localhost:3000`) üzerinden aşağıdaki senaryoları test edebilirsiniz:
+
+#### Senaryo 1 — Standart EFT / Havale
+1. Arayüzde **"Standart EFT / Havale"** butonuna tıklayın.
+2. **Terminal A'da:** `transaction-logger-service-...` pod'u 0'dan 1'e çıkarak ayağa kalkar.
+3. **Terminal B'de:** İşlemin detaylı JSON log çıktısı görünür.
+
+#### Senaryo 2 — Kredi Kartı Harcaması
+1. **"Kredi Kartı Harcaması"** butonuna tıklayın.
+2. **Terminal B'de:** `risk_level: medium` etiketli JSON log çıktısı görünür.
+3. Pod zaten ayaktaysa işlem sıfır gecikmeyle (milisaniyeler içinde) gerçekleşir.
+
+#### Senaryo 3 — Şüpheli Transfer (Fraud)
+1. **"Yüklü Şüpheli Transfer"** butonuna tıklayın.
+2. **Terminal A'da:** `fraud-alert-service-...` pod'u ilk kez ayağa kalkar.
+3. **Terminal C'de:** Kırmızı renkli `🚨 YÜKSEK RİSKLİ İŞLEM` uyarısı çıkar.
+
+#### Senaryo 4 — Yurtdışı ATM Çekimi (Kritik)
+1. **"Yurtdışı ATM Çekimi"** butonuna tıklayın.
+2. **Terminal C'de:** Kırmızı renkli `🔴 KRİTİK FRAUD UYARISI` mesajı çıkar.
 
 ---
 
@@ -194,49 +226,15 @@ kubectl logs -n banking-system -l serving.knative.dev/service=fraud-alert-servic
 
 ---
 
-## 🔑 Temel Kavramlar
-
-### SinkBinding — Hardcoded URL Yok
-```yaml
-# sinkbinding.yaml
-spec:
-  subject:
-    kind: Deployment
-    name: producer-api     # Bu deployment'a inject edilir
-  sink:
-    ref:
-      kind: Broker
-      name: banking-broker  # Broker URL'i → K_SINK olarak inject edilir
-```
-
-```python
-# producer/main.py — K_SINK env variable'dan okunur
-sink_url = os.environ.get("K_SINK")  # Knative inject eder
-```
-
-### Scale-to-Zero
-```yaml
-# ksvc.yaml
-annotations:
-  autoscaling.knative.dev/min-scale: "0"   # ← Scale-to-zero aktif
-  autoscaling.knative.dev/max-scale: "3"
-  autoscaling.knative.dev/target: "10"     # Concurrent request/pod
-```
-
----
-
 ## ☁️ CI/CD (GitHub Actions)
 
 ### Gerekli Secrets
-
 | Secret | Açıklama |
 |---|---|
 | `DOCKER_HUB_USER` | Docker Hub kullanıcı adı |
-| `DOCKER_HUB_TOKEN` | Docker Hub access token |
-| `KUBE_CONFIG_DATA` | `base64 -w0 ~/.kube/config` çıktısı |
+| `DOCKER_HUB_TOKEN` | Docker Hub access token (Read & Write yetkili) |
 
 ### Pipeline Akışı
-
 ```
 Push to main
     │
@@ -245,132 +243,6 @@ Push to main
     │
     ├─► build-push (parallel: 4 Docker images)
     │       └─► multi-arch (amd64 + arm64) → Docker Hub
-    │
-    └─► deploy
-            ├─► Image tag patch (SHA → manifests)
-            ├─► kubectl apply (sıralı)
-            └─► Rollout status verify
-```
-
----
-
-## 🧪 Test Rehberi
-
-Sistem deploy edildikten sonra aşağıdaki adımları **sırayla** takip edin.
-
----
-
-### Adım 1 — Bileşenler Hazır mı? (1 Terminal)
-
-Önce her şeyin ayakta olup olmadığını kontrol edin:
-
-```bash
-kubectl get broker,trigger,ksvc,sinkbinding -n banking-system
-```
-
-Her satırda `READY = True` yazıyor olmalı. Henüz `False` görüyorsanız 30 saniye bekleyip tekrar çalıştırın.
-
----
-
-### Adım 2 — Producer'ın K_SINK Aldığını Doğrula (1 Terminal)
-
-SinkBinding çalışıyorsa producer pod'unun içinde `K_SINK` değişkeni otomatik set edilmiş olmalıdır:
-
-```bash
-kubectl exec -n banking-system deploy/producer-api -- env | grep K_SINK
-```
-
-Çıktı şöyle bir şey göstermelidir:
-
-```
-K_SINK=http://banking-broker-ingress.banking-system.svc.cluster.local/...
-```
-
-Eğer `K_SINK` çıktısı boşsa SinkBinding henüz işlenmemiş demektir — 1 dakika bekleyip tekrar deneyin.
-
----
-
-### Adım 3 — Scale-to-Zero Başlangıç Kontrolü (1 Terminal)
-
-Consumer servisler işlem gelmediğinde sıfır pod ile çalışır. Bunu doğrulamak için:
-
-```bash
-kubectl get pods -n banking-system
-```
-
-Listede yalnızca `producer-api-...` ve `frontend-...` pod'ları görünmeli.  
-`transaction-logger` veya `fraud-alert` pod'ları **henüz olmamalı** — bu normal ve beklenen davranıştır.
-
----
-
-### Adım 4 — 3 Terminal Penceresi Aç
-
-Test sırasında aynı anda üç ayrı terminal penceresi açık olmalıdır:
-
-**Terminal A — Pod değişimlerini canlı izle:**
-```bash
-kubectl get pods -n banking-system -w
-```
-> Bu terminali açık bırakın. Butona her tıkladığınızda yeni pod'ların `Running` durumuna geçtiğini burada göreceksiniz.
-
-**Terminal B — Standart işlem logları (TX Logger):**
-```bash
-kubectl logs -n banking-system \
-  -l serving.knative.dev/service=transaction-logger-service \
-  --prefix -f
-```
-> `EFT` ve `Kredi Kartı` butonlarına bastığınızda bu terminalde JSON formatında log çıktısı gelecek.
-
-**Terminal C — Fraud uyarı logları:**
-```bash
-kubectl logs -n banking-system \
-  -l serving.knative.dev/service=fraud-alert-service \
-  --prefix -f
-```
-> `Şüpheli Transfer` ve `Yurtdışı ATM` butonlarına bastığınızda bu terminalde kırmızı renkli FRAUD uyarısı çıkacak.
-
----
-
-### Adım 5 — Web Arayüzünü Aç
-
-Tarayıcıda aşağıdaki adrese gidin:
-
-```bash
-# Minikube IP'yi öğren:
-minikube ip
-```
-
-```
-http://<MINIKUBE_IP>:30080
-```
-
-Örneğin IP `192.168.49.2` ise adres: `http://192.168.49.2:30080`
-
----
-
-### Adım 6 — İşlem Senaryolarını Test Et
-
-#### Senaryo 1 — Standart EFT / Havale
-1. Arayüzde **"Standart EFT / Havale"** butonuna tıklayın
-2. **Terminal A'da:** `transaction-logger-service-...` adında yeni bir pod `0/1 Running → 1/1 Running` durumuna geçer
-3. **Terminal B'de:** İşlemin JSON log çıktısı gelir (tutar, IBAN, müşteri ID vb.)
-4. Sayfadaki stat kutularında `Toplam İşlem` ve `Başarılı Event` sayacı artar
-
-#### Senaryo 2 — Kredi Kartı Harcaması
-1. **"Kredi Kartı Harcaması"** butonuna tıklayın
-2. **Terminal B'de:** `risk_level: medium` etiketli log çıktısı gelir
-3. Eğer TX Logger pod'u hâlâ ayaktaysa (30 sn geçmemişse) anında yanıt verir
-
-#### Senaryo 3 — Şüpheli Transfer (Fraud)
-1. **"Yüklü Şüpheli Transfer"** butonuna tıklayın
-2. **Terminal A'da:** `fraud-alert-service-...` pod'u ilk kez ayağa kalkar
-3. **Terminal C'de:** Kırmızı çerçeveli `🚨 YÜKSEK RİSKLİ İŞLEM` uyarısı gelir
-4. Sayfadaki `Fraud Uyarısı` sayacı artar
-
-#### Senaryo 4 — Yurtdışı ATM Çekimi (Kritik)
-1. **"Yurtdışı ATM Çekimi"** butonuna tıklayın
-2. **Terminal C'de:** Kırmızı çerçeveli `🔴 KRİTİK FRAUD UYARISI` mesajı çıkar
-3. Destination country, IP adresi ve device fingerprint bilgileri de loglanır
 
 ---
 

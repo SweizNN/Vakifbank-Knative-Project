@@ -5,6 +5,12 @@
 # ==============================================================================
 set -e
 
+# Windows Git Bash için .exe alias ayarları
+shopt -s expand_aliases
+if ! command -v kubectl &> /dev/null && command -v kubectl.exe &> /dev/null; then
+  alias kubectl="kubectl.exe"
+fi
+
 CYAN='\033[0;36m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
 
 echo -e "\n${BOLD}${CYAN}VakıfBank Knative — Otomatik Kurulum ve İzleme Başlıyor...${NC}\n"
@@ -47,18 +53,23 @@ kubectl port-forward svc/producer-api-service 8000:8000 -n banking-system &
 # Biraz bekle (Port-forward'ın oturması için)
 sleep 2
 
-# 4. Log İzleme
+# 4. İzleme Terminallerini Başlat (Windows PowerShell üzerinden 3 ayrı pencere açar)
 echo -e "\n${BOLD}================ İzleme Ekranı =================${NC}"
 echo -e "🌐 Frontend Arayüzü : http://localhost:3000"
 echo -e "📖 Producer API Docs: http://localhost:8000/api/docs"
 echo -e "${BOLD}================================================${NC}\n"
 
-echo -e "${YELLOW}Servis logları aşağıya akmaya başlayacak...${NC}\n"
+echo -e "${YELLOW}Logları izlemek için 3 yeni PowerShell penceresi açılıyor...${NC}\n"
+echo -e "${CYAN}Lütfen açılan siyah/mavi pencereleri kapatmayın ve yan yana dizin.${NC}\n"
 
-# Knative servislerinin pod'ları istek geldiğinde yaratılacağı için label üzerinden logları takip ediyoruz
-kubectl logs -n banking-system -l serving.knative.dev/service=transaction-logger-service --prefix -f &
-kubectl logs -n banking-system -l serving.knative.dev/service=fraud-alert-service --prefix -f &
-kubectl get pods -n banking-system -w &
+# Pod değişimleri
+cmd.exe /c start powershell -NoExit -Command "[console]::BackgroundColor='Black'; [console]::ForegroundColor='White'; Clear-Host; Write-Host '--- TERMINAL A (Pod İzleme) ---' -ForegroundColor Cyan; kubectl get pods -n banking-system -w"
 
-# Scriptin arka plan işlemleri bitene kadar kapanmaması için bekle
+# Transaction logger
+cmd.exe /c start powershell -NoExit -Command "[console]::BackgroundColor='Black'; [console]::ForegroundColor='White'; Clear-Host; Write-Host '--- TERMINAL B (Standart Islemler) ---' -ForegroundColor Yellow; while (\$true) { kubectl logs -n banking-system -l serving.knative.dev/service=transaction-logger-service --prefix -f; Start-Sleep -Seconds 2 }"
+
+# Fraud alert
+cmd.exe /c start powershell -NoExit -Command "[console]::BackgroundColor='Black'; [console]::ForegroundColor='White'; Clear-Host; Write-Host '--- TERMINAL C (Fraud - Supheli Islemler) ---' -ForegroundColor Red; while (\$true) { kubectl logs -n banking-system -l serving.knative.dev/service=fraud-alert-service --prefix -f; Start-Sleep -Seconds 2 }"
+
+# Ana script sadece port-forward işlemlerini tutar
 wait

@@ -1,22 +1,6 @@
 # ============================================================
 #  triggers.yaml
 #  Knative Eventing — Event Routing Triggers
-#
-#  Trigger 1 — standard-tx-trigger:
-#    Filtre: type = "banking.transaction"
-#    Hedef:  transaction-logger-service (Knative ksvc)
-#
-#  Trigger 2 — fraud-alert-trigger:
-#    Filtre: type = "banking.suspicious"
-#    Hedef:  fraud-alert-service (Knative ksvc)
-#
-#  Trigger 3 — high-risk-tx-trigger:
-#    Filtre: type = "banking.transaction" AND risklevel = "medium"
-#    Hedef:  transaction-logger-service (medium risk bildirim)
-#
-#  Not: Knative Trigger filter'lar CloudEvent attribute'larına
-#  bakar. Custom extension'lar (risklevel, riskscore) küçük harf
-#  ve boşuksuz olmalıdır (CE spec zorunluluğu).
 # ============================================================
 
 # ── Trigger 1: Standart Bankacılık İşlemleri (Low Risk) ──────────────────────
@@ -28,8 +12,6 @@ metadata:
   labels:
     app.kubernetes.io/name: standard-tx-trigger
     app.kubernetes.io/part-of: vakifbank-knative-demo
-  annotations:
-    description: "Standart EFT ve kredi kartı işlemlerini transaction-logger'a yönlendirir"
 spec:
   broker: banking-broker
   filter:
@@ -41,6 +23,9 @@ spec:
       kind: Service
       name: transaction-logger-service
       namespace: banking-system
+  delivery:
+    retry: 0
+    timeout: PT30S
 
 ---
 # ── Trigger 2: Fraud / Şüpheli İşlemler (High/Critical Risk) ─────────────────
@@ -52,8 +37,6 @@ metadata:
   labels:
     app.kubernetes.io/name: fraud-alert-trigger
     app.kubernetes.io/part-of: vakifbank-knative-demo
-  annotations:
-    description: "Şüpheli transferleri ve yurtdışı ATM çekimlerini fraud-alert-service'e yönlendirir"
 spec:
   broker: banking-broker
   filter:
@@ -65,11 +48,12 @@ spec:
       kind: Service
       name: fraud-alert-service
       namespace: banking-system
+  delivery:
+    retry: 0
+    timeout: PT30S
 
 ---
 # ── Trigger 3: Orta Riskli İşlemler (Medium Risk — Ek Bildirim) ──────────────
-# Not: risklevel custom extension attribute; CloudEvents spec gereği
-# attribute adı küçük harf ve alfanumerik olmalıdır.
 apiVersion: eventing.knative.dev/v1
 kind: Trigger
 metadata:
@@ -78,8 +62,6 @@ metadata:
   labels:
     app.kubernetes.io/name: medium-risk-trigger
     app.kubernetes.io/part-of: vakifbank-knative-demo
-  annotations:
-    description: "Orta riskli kredi kartı işlemlerini transaction-logger'a yönlendirir (medium risk tag)"
 spec:
   broker: banking-broker
   filter:
@@ -92,3 +74,6 @@ spec:
       kind: Service
       name: transaction-logger-service
       namespace: banking-system
+  delivery:
+    retry: 0
+    timeout: PT30S

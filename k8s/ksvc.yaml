@@ -39,6 +39,7 @@ spec:
         autoscaling.knative.dev/min-scale: "0"
         # Stabilization window (ani scale-down'ı önler)
         autoscaling.knative.dev/scale-down-delay: "30s"
+        force-update: "v3"
     spec:
       # Knative varsayılan timeout (idle sonrası pod durdurma)
       timeoutSeconds: 300
@@ -47,9 +48,9 @@ spec:
           # IMAGE: GitHub Actions tarafından güncellenir
           # Format: docker.io/sweizn/transaction-logger:SHA
           image: docker.io/sweizn/transaction-logger:latest
-          imagePullPolicy: Always    # Docker Hub'dan her zaman güncel image çek
+          imagePullPolicy: IfNotPresent    # Docker Hub'dan her zaman güncel image çek
           ports:
-            - name: h2c          # HTTP/2 (Knative default)
+            - name: http1          # HTTP/2 (Knative default)
               containerPort: 8080
               protocol: TCP
           env:
@@ -100,9 +101,9 @@ spec:
         - name: fraud-alert
           # IMAGE: GitHub Actions tarafından güncellenir
           image: docker.io/sweizn/fraud-alert:latest
-          imagePullPolicy: Always    # Docker Hub'dan her zaman güncel image çek
+          imagePullPolicy: IfNotPresent    # Docker Hub'dan her zaman güncel image çek
           ports:
-            - name: h2c
+            - name: http1
               containerPort: 8080
               protocol: TCP
           env:

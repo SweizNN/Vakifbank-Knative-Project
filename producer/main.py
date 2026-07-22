@@ -190,7 +190,7 @@ async def simulate_transaction(request: SimulateRequest):
 
     # Knative Broker'a HTTP POST
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 sink_url,
                 content=body,

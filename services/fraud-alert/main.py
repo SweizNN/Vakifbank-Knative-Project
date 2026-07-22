@@ -54,8 +54,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ─── Alert Counter ───────────────────────────────────────────────────────────
+# ─── Alert Counter & Idempotency ─────────────────────────────────────────────
 alert_counter = {"total": 0, "high": 0, "critical": 0}
+seen_events = set() # Broker retry'larını filtrelemek için
 
 # ─── Risk Mesaj Şablonları ────────────────────────────────────────────────────
 RISK_MESSAGES = {
@@ -107,6 +108,18 @@ async def receive_fraud_event(request: Request):
 
     risk_info = RISK_MESSAGES.get(risk_level, RISK_MESSAGES["high"])
     clr = risk_info["color"]
+
+    event_id = event["id"]
+    
+    # ── Idempotency Check (Broker Retry'larını Yoksay) ──
+    if event_id in seen_events:
+        logger.info("Duplicate event ignored: %s", event_id)
+        return PlainTextResponse(content="OK (Duplicate)", status_code=200)
+    seen_events.add(event_id)
+    # Bellek şişmesini önlemek için basit temizlik (1000'den fazlaysa boşalt)
+    if len(seen_events) > 1000:
+        seen_events.clear()
+        seen_events.add(event_id)
 
     alert_counter["total"] += 1
     if risk_level == "high":     alert_counter["high"] += 1
