@@ -1,0 +1,70 @@
+# ============================================================
+#  frontend-deployment.yaml
+#  Frontend Nginx — Kubernetes Deployment + Service
+# ============================================================
+
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: banking-system
+  labels:
+    app: frontend
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        app.kubernetes.io/name: frontend
+    spec:
+      containers:
+        - name: frontend
+          # IMAGE: GitHub Actions tarafından güncellenir
+          image: docker.io/sweizn/frontend:latest
+          imagePullPolicy: Always    # Docker Hub'dan her zaman güncel image çek
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /nginx-health
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /nginx-health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 15
+
+---
+# ── Service (NodePort — Minikube erişimi için) ────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: banking-system
+  labels:
+    app: frontend
+    app.kubernetes.io/name: frontend-service
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 30080          # Sabit NodePort: minikube ip:30080
+      protocol: TCP
+  type: NodePort

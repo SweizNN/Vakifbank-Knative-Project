@@ -1,0 +1,36 @@
+# ============================================================
+#  sinkbinding.yaml
+#  Knative Eventing — SinkBinding
+#
+#  Producer API Deployment'ına K_SINK ortam değişkenini
+#  Knative Broker adresiyle otomatik inject eder.
+#  Kodda hiçbir hardcoded URL kullanılmaz.
+# ============================================================
+apiVersion: sources.knative.dev/v1
+kind: SinkBinding
+metadata:
+  name: producer-to-broker
+  namespace: banking-system
+  labels:
+    app.kubernetes.io/name: producer-to-broker
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+spec:
+  # Kaynak: Producer API Deployment
+  subject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: producer-api
+    # Not: selector ile birden fazla pod hedeflenebilir
+    # selector:
+    #   matchLabels:
+    #     app: producer-api
+
+  # Hedef: banking-broker
+  # Knative bu broker'ın URL'ini otomatik çözümler ve
+  # K_SINK env variable olarak inject eder.
+  sink:
+    ref:
+      apiVersion: eventing.knative.dev/v1
+      kind: Broker
+      name: banking-broker
+      namespace: banking-system

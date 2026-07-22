@@ -1,0 +1,29 @@
+# ============================================================
+#  broker.yaml
+#  Knative Eventing — InMemory Broker
+#
+#  Not: InMemoryChannel, production değil geliştirme içindir.
+#  Production için Kafka Channel veya RabbitMQ kullanın.
+# ============================================================
+apiVersion: eventing.knative.dev/v1
+kind: Broker
+metadata:
+  name: banking-broker
+  namespace: banking-system
+  labels:
+    app.kubernetes.io/name: banking-broker
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+  annotations:
+    eventing.knative.dev/broker.class: MTChannelBasedBroker
+spec:
+  config:
+    apiVersion: v1
+    kind: ConfigMap
+    name: config-br-default-channel
+    namespace: knative-eventing
+  # Hafıza kısıtlı ortam için resource limitleri
+  delivery:
+    backoffDelay: PT2S       # 2 saniye retry delay
+    backoffPolicy: exponential
+    retry: 3                 # Maksimum 3 retry
+    timeout: PT10S           # 10 saniye timeout

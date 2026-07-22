@@ -1,0 +1,128 @@
+# ============================================================
+#  ksvc.yaml
+#  Knative Serving — Consumer Microservices
+#
+#  Her iki servis de Knative Service (ksvc) olarak tanımlanır:
+#  ✓ Scale-to-Zero: İşlem yokken pod sayısı 0'a iner
+#  ✓ Scale-up: İlk event geldiğinde otomatik pod ayağa kalkar
+#  ✓ Knative Autoscaler (KPA): Knative'in kendi HPA'sı kullanılır
+#
+#  IMAGE: GitHub Actions tarafından güncellenir.
+#         Varsayılan değer: docker.io/<DOCKER_HUB_USER>/...
+#         deploy.yml workflow'u bu değeri patch eder.
+# ============================================================
+
+# ── Service 1: Transaction Logger ────────────────────────────────────────────
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: transaction-logger-service
+  namespace: banking-system
+  labels:
+    app.kubernetes.io/name: transaction-logger-service
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+    app.kubernetes.io/component: consumer
+  annotations:
+    description: "banking.transaction event'lerini loglar"
+spec:
+  template:
+    metadata:
+      annotations:
+        # ── Knative Autoscaler (KPA) Ayarları ──────────────────────────────
+        # Scale-to-zero için bekleme süresi
+        autoscaling.knative.dev/scale-to-zero-pod-retention-period: "0s"
+        # Concurrent request sayısına göre scale
+        autoscaling.knative.dev/target: "10"
+        # Maksimum pod sayısı (kısıtlı kaynak ortamı için)
+        autoscaling.knative.dev/max-scale: "3"
+        # Minimum pod sayısı — 0 = scale-to-zero aktif
+        autoscaling.knative.dev/min-scale: "0"
+        # Stabilization window (ani scale-down'ı önler)
+        autoscaling.knative.dev/scale-down-delay: "30s"
+    spec:
+      # Knative varsayılan timeout (idle sonrası pod durdurma)
+      timeoutSeconds: 300
+      containers:
+        - name: transaction-logger
+          # IMAGE: GitHub Actions tarafından güncellenir
+          # Format: docker.io/sweizn/transaction-logger:SHA
+          image: docker.io/sweizn/transaction-logger:latest
+          imagePullPolicy: Always    # Docker Hub'dan her zaman güncel image çek
+          ports:
+            - name: h2c          # HTTP/2 (Knative default)
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+
+---
+# ── Service 2: Fraud Alert ────────────────────────────────────────────────────
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: fraud-alert-service
+  namespace: banking-system
+  labels:
+    app.kubernetes.io/name: fraud-alert-service
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+    app.kubernetes.io/component: consumer
+  annotations:
+    description: "banking.suspicious event'leri için fraud uyarısı üretir"
+spec:
+  template:
+    metadata:
+      annotations:
+        # ── Knative Autoscaler Ayarları ────────────────────────────────────
+        autoscaling.knative.dev/scale-to-zero-pod-retention-period: "0s"
+        # Fraud servisi: daha agresif scale (her event önemli)
+        autoscaling.knative.dev/target: "5"
+        autoscaling.knative.dev/max-scale: "5"
+        autoscaling.knative.dev/min-scale: "0"
+        autoscaling.knative.dev/scale-down-delay: "60s"
+    spec:
+      timeoutSeconds: 300
+      containers:
+        - name: fraud-alert
+          # IMAGE: GitHub Actions tarafından güncellenir
+          image: docker.io/sweizn/fraud-alert:latest
+          imagePullPolicy: Always    # Docker Hub'dan her zaman güncel image çek
+          ports:
+            - name: h2c
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: TERM
+              value: "xterm-256color"
+            - name: FORCE_COLOR
+              value: "1"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3

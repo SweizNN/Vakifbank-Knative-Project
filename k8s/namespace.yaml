@@ -1,0 +1,15 @@
+# ============================================================
+#  namespace.yaml
+#  VakıfBank Knative Banking System — Namespace
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: banking-system
+  labels:
+    app.kubernetes.io/managed-by: "knative"
+    app.kubernetes.io/part-of: "vakifbank-knative-demo"
+    # Knative Eventing injection için gerekli label
+    knative-eventing-injection: enabled
+  annotations:
+    description: "VakıfBank Event-Driven Banking Transaction & Fraud Detection System"

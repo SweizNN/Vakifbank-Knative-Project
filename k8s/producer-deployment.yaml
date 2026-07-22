@@ -1,0 +1,85 @@
+# ============================================================
+#  producer-deployment.yaml
+#  Producer API — Kubernetes Deployment + Service
+#
+#  SinkBinding bu Deployment'ı hedef aldığından,
+#  K_SINK env variable Knative tarafından otomatik inject edilir.
+#  Bu dosyada herhangi bir Broker URL'i tanımlanmaz.
+# ============================================================
+
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer-api
+  namespace: banking-system
+  labels:
+    app: producer-api
+    app.kubernetes.io/name: producer-api
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+    app.kubernetes.io/component: producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: producer-api
+  template:
+    metadata:
+      labels:
+        app: producer-api
+        app.kubernetes.io/name: producer-api
+      annotations:
+        # Pod yeniden başlatma politikası (SinkBinding güncelleme için)
+        kubectl.kubernetes.io/restartedAt: ""
+    spec:
+      containers:
+        - name: producer-api
+          # IMAGE: GitHub Actions tarafından güncellenir
+          image: docker.io/sweizn/producer-api:latest
+          imagePullPolicy: Always    # Docker Hub'dan her zaman güncel image çek
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          # K_SINK burada tanımlanmaz! SinkBinding inject eder.
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+      restartPolicy: Always
+
+---
+# ── Service (ClusterIP) ────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: producer-api-service
+  namespace: banking-system
+  labels:
+    app: producer-api
+    app.kubernetes.io/name: producer-api-service
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+spec:
+  selector:
+    app: producer-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP

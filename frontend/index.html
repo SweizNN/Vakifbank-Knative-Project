@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="VakıfBank Knative — Olay Güdümlü Bankacılık İşlem ve Dolandırıcılık Tespit Sistemi Simülasyonu" />
+    <title>VakıfBank | Transaction Simulator — Knative Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow--1"></div>
+    <div class="bg-glow bg-glow--2"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer" aria-live="assertive" aria-atomic="true"></div>
+
+    <div class="app-wrapper">
+        <!-- Header -->
+        <header class="header">
+            <div class="header__logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="44" height="44" rx="12" fill="url(#lg1)"/>
+                        <path d="M9 32V19l13-9 13 9v13H9z" stroke="#fff" stroke-width="1.6" fill="none"/>
+                        <rect x="17" y="22" width="10" height="10" rx="1.5" stroke="#fff" stroke-width="1.6" fill="none"/>
+                        <circle cx="32" cy="14" r="5" fill="url(#lg2)"/>
+                        <path d="M30 14l1.5 1.5L34.5 12" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <defs>
+                            <linearGradient id="lg1" x1="0" y1="0" x2="44" y2="44">
+                                <stop offset="0%" stop-color="#6366f1"/>
+                                <stop offset="100%" stop-color="#3b82f6"/>
+                            </linearGradient>
+                            <linearGradient id="lg2" x1="0" y1="0" x2="10" y2="10">
+                                <stop offset="0%" stop-color="#10b981"/>
+                                <stop offset="100%" stop-color="#059669"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <span class="logo-text__bank">VakıfBank</span>
+                    <span class="logo-text__sub">Knative Event Simulator</span>
+                </div>
+            </div>
+            <div class="header__status">
+                <div class="status-dot connecting" id="statusDot"></div>
+                <span class="status-label" id="statusLabel">API kontrol ediliyor...</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- Stats Row -->
+            <section class="stats-row" aria-label="İşlem istatistikleri">
+                <div class="stat-card">
+                    <div class="stat-card__icon stat-card__icon--blue">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+                    </div>
+                    <div class="stat-card__info">
+                        <span class="stat-card__value" id="totalCount">0</span>
+                        <span class="stat-card__label">Toplam İşlem</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__icon stat-card__icon--green">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+                    </div>
+                    <div class="stat-card__info">
+                        <span class="stat-card__value" id="successCount">0</span>
+                        <span class="stat-card__label">Başarılı Event</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__icon stat-card__icon--red">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div class="stat-card__info">
+                        <span class="stat-card__value" id="fraudCount">0</span>
+                        <span class="stat-card__label">Fraud Uyarısı</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card__icon stat-card__icon--purple">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
+                    <div class="stat-card__info">
+                        <span class="stat-card__value" id="volumeCount">₺0</span>
+                        <span class="stat-card__label">İşlem Hacmi</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transaction Buttons -->
+            <section class="tx-panel" aria-label="İşlem türleri">
+                <div class="section-title">
+                    <h1>İşlem Simülatörü</h1>
+                    <p>Aşağıdaki işlem türlerinden birini seçin. Her tıklama bir <strong>CloudEvent</strong> üretir ve Knative Broker üzerinden ilgili consumer'a yönlendirilir.</p>
+                </div>
+                <div class="tx-grid">
+                    <button class="tx-btn tx-btn--standard"
+                            id="btn-eft"
+                            data-type="standard_eft"
+                            aria-label="Standart EFT/Havale işlemi gönder">
+                        <div class="tx-btn__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9 22,2"/></svg>
+                        </div>
+                        <div class="tx-btn__content">
+                            <span class="tx-btn__title">Standart EFT / Havale</span>
+                            <span class="tx-btn__desc">Düşük riskli iç banka transferi → <code>transaction-logger</code></span>
+                        </div>
+                        <div class="tx-btn__badge tx-btn__badge--low">LOW RISK</div>
+                        <div class="tx-btn__ripple"></div>
+                    </button>
+
+                    <button class="tx-btn tx-btn--credit"
+                            id="btn-credit"
+                            data-type="credit_card_purchase"
+                            aria-label="Kredi kartı harcaması işlemi gönder">
+                        <div class="tx-btn__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                        </div>
+                        <div class="tx-btn__content">
+                            <span class="tx-btn__title">Kredi Kartı Harcaması</span>
+                            <span class="tx-btn__desc">Orta riskli POS işlemi → <code>transaction-logger</code></span>
+                        </div>
+                        <div class="tx-btn__badge tx-btn__badge--medium">MED RISK</div>
+                        <div class="tx-btn__ripple"></div>
+                    </button>
+
+                    <button class="tx-btn tx-btn--suspicious"
+                            id="btn-suspicious"
+                            data-type="suspicious_transfer"
+                            aria-label="Yüklü miktarda şüpheli transfer işlemi gönder">
+                        <div class="tx-btn__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="tx-btn__content">
+                            <span class="tx-btn__title">Yüklü Şüpheli Transfer</span>
+                            <span class="tx-btn__desc">Yüksek riskli büyük hacimli transfer → <code>fraud-alert</code></span>
+                        </div>
+                        <div class="tx-btn__badge tx-btn__badge--high">HIGH RISK</div>
+                        <div class="tx-btn__ripple"></div>
+                    </button>
+
+                    <button class="tx-btn tx-btn--overseas"
+                            id="btn-overseas"
+                            data-type="overseas_atm_withdrawal"
+                            aria-label="Yurtdışı ATM çekimi işlemi gönder">
+                        <div class="tx-btn__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        </div>
+                        <div class="tx-btn__content">
+                            <span class="tx-btn__title">Yurtdışı ATM Çekimi</span>
+                            <span class="tx-btn__desc">Kritik risk, coğrafi anomali → <code>fraud-alert</code> acil</span>
+                        </div>
+                        <div class="tx-btn__badge tx-btn__badge--critical">CRITICAL</div>
+                        <div class="tx-btn__ripple"></div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Console -->
+            <section class="console-panel" aria-label="Event log konsolu">
+                <div class="console-header">
+                    <div class="console-header__left">
+                        <div class="console-dots">
+                            <span class="dot dot--red"></span>
+                            <span class="dot dot--yellow"></span>
+                            <span class="dot dot--green"></span>
+                        </div>
+                        <span class="console-title">CloudEvent Log — Producer API</span>
+                    </div>
+                    <div class="console-header__right">
+                        <button class="console-btn" id="btnClearLog" aria-label="Log temizle">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M10,11v6"/><path d="M14,11v6"/><path d="M9,6V4h6v2"/></svg>
+                            Temizle
+                        </button>
+                        <span class="console-count" id="logCount">0 event</span>
+                    </div>
+                </div>
+                <div class="console-body" id="logConsole" role="log" aria-live="polite" aria-label="İşlem logları">
+                    <div class="console-empty" id="consoleEmpty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="44" height="44"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <p>İşlem yapılmadı. Yukarıdaki butonlarla CloudEvent üretin ve Knative akışını izleyin.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Architecture -->
+            <section class="arch-panel" aria-label="Sistem mimarisi">
+                <div class="section-title">
+                    <h2>Knative Event Akışı</h2>
+                    <p>İşlem tıklandığında aşağıdaki düğümler sırayla aktifleşir</p>
+                </div>
+                <div class="arch-diagram" id="archDiagram">
+                    <div class="arch-node arch-node--frontend" id="archFrontend">
+                        <div class="arch-node__icon">🖥️</div>
+                        <span>Frontend</span>
+                        <small>HTTP POST</small>
+                    </div>
+                    <div class="arch-arrow" id="arrow1">→</div>
+                    <div class="arch-node arch-node--producer" id="archProducer">
+                        <div class="arch-node__icon">⚡</div>
+                        <span>Producer API</span>
+                        <small>K_SINK inject</small>
+                    </div>
+                    <div class="arch-arrow" id="arrow2">→</div>
+                    <div class="arch-node arch-node--broker" id="archBroker">
+                        <div class="arch-node__icon">📡</div>
+                        <span>Knative Broker</span>
+                        <small>InMemory</small>
+                    </div>
+                    <div class="arch-arrow arch-arrow--split" id="arrow3">⇒</div>
+                    <div class="arch-consumers">
+                        <div class="arch-node arch-node--logger" id="archLogger">
+                            <div class="arch-node__icon">📋</div>
+                            <span>TX Logger</span>
+                            <small>scale-to-zero</small>
+                        </div>
+                        <div class="arch-node arch-node--fraud" id="archFraud">
+                            <div class="arch-node__icon">🚨</div>
+                            <span>Fraud Alert</span>
+                            <small>scale-to-zero</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>VakıfBank Knative Demo &mdash; Kubernetes + Knative Serving &amp; Eventing &mdash;
+               <span id="footerTime"></span>
+            </p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
