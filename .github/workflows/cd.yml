@@ -247,12 +247,11 @@ jobs:
             kubectl rollout status deployment/frontend -n banking-system --timeout=120s
             kubectl rollout status deployment/producer-api -n banking-system --timeout=120s
 
-            # 9. Setup Port-Forwarding for External Access
+            # 9. Setup Port-Forwarding for External Access (Robust Docker Socat Proxy)
             echo "🔌 Setting up Port-Forwarding for external access..."
-            pkill -f "kubectl port-forward.*frontend-service" || true
-            sleep 2
-            nohup kubectl port-forward --address 0.0.0.0 svc/frontend-service 30080:80 -n banking-system < /dev/null > /dev/null 2>&1 &
-            sleep 3
+            MINIKUBE_IP=$(minikube ip)
+            docker rm -f frontend-proxy || true
+            docker run -d --name frontend-proxy --network host alpine/socat TCP-LISTEN:30080,fork,reuseaddr TCP:${MINIKUBE_IP}:30080
 
             echo "=========================================================="
             echo " ✅ DEPLOYMENT SUCCESSFUL!"
