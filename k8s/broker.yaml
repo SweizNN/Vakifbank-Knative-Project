@@ -4,7 +4,7 @@
 #
 #  Not: InMemoryChannel, production değil geliştirme içindir.
 #  Production için Kafka Channel veya RabbitMQ kullanın.
-# ============================================================
+# ============================================================ TEST
 apiVersion: eventing.knative.dev/v1
 kind: Broker
 metadata:
