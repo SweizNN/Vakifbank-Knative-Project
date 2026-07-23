@@ -1,6 +1,6 @@
 # 🏦 VakıfBank — Event-Driven Banking Transaction & Fraud Detection
 
-**Kubernetes + Knative Serving & Eventing** tabanlı, olay güdümlü bankacılık işlem ve dolandırıcılık tespit sistemi.
+**Kubernetes + Knative Serving & Eventing** tabanlı, olay güdümlü bankacılık işlem ve dolandırıcılık tespit sistemi. TEST
 
 ![Architecture](https://img.shields.io/badge/Architecture-Event--Driven-6366f1?style=for-the-badge)
 ![Knative](https://img.shields.io/badge/Knative-v1.14-0865AD?style=for-the-badge&logo=knative)
