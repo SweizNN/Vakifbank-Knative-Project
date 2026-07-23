@@ -34,7 +34,7 @@ spec:
       containers:
         - name: transaction-logger
           image: docker.io/sweizn/transaction-logger:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http1
               containerPort: 8080
@@ -87,7 +87,7 @@ spec:
       containers:
         - name: fraud-alert
           image: docker.io/sweizn/fraud-alert:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http1
               containerPort: 8080
