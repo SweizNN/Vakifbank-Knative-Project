@@ -94,7 +94,7 @@ Vakifbank-Knative-Project/
 
 ## 🌍 Canlı Ortam (DigitalOcean Prodüksiyon)
 
-Sistem, GitHub Actions üzerinden tam otomatik CD (Continuous Deployment) ile DigitalOcean sunucunuzda (IP: `134.122.61.206`) çalışmak üzere yapılandırılmıştır.
+Sistem, GitHub Actions üzerinden tam otomatik CD (Continuous Deployment) ile DigitalOcean sunucunuzda (IP: `http://134.122.61.206:30080`) çalışmak üzere yapılandırılmıştır.
 
 ### Sistemi Canlıya Alma
 Sistemin güncellenmesi ve canlıya alınması için **sunucuda manuel hiçbir işlem yapmanıza gerek yoktur**. Kodlarınızı GitHub'a gönderdiğinizde her şey otomatik gerçekleşir:
@@ -243,82 +243,3 @@ Arayüz (`http://localhost:3000`) üzerinden aşağıdaki senaryoları test edeb
 2. **Terminal C'de:** Kırmızı renkli `🔴 KRİTİK FRAUD UYARISI` mesajı çıkar.
 
 ---
-
-## ⚡ CloudEvent Akışı
-
-| İşlem Tipi | CE Type | Risk Level | Consumer |
-|---|---|---|---|
-| Standart EFT/Havale | `banking.transaction` | `low` | `transaction-logger-service` |
-| Kredi Kartı Harcaması | `banking.transaction` | `medium` | `transaction-logger-service` |
-| Şüpheli Transfer | `banking.suspicious` | `high` | `fraud-alert-service` |
-| Yurtdışı ATM Çekimi | `banking.suspicious` | `critical` | `fraud-alert-service` |
-
----
-
-## ☁️ CI/CD (GitHub Actions)
-
-### Gerekli Secrets
-| Secret | Açıklama |
-|---|---|
-| `DOCKER_HUB_USER` | Docker Hub kullanıcı adı |
-| `DOCKER_HUB_TOKEN` | Docker Hub access token (Read & Write yetkili) |
-
-### Pipeline Akışı
-```
-Push to main
-    │
-    ├─► test (parallel matrix: producer, tx-logger, fraud-alert)
-    │       └─► flake8 lint + import smoke test
-    │
-    ├─► build-push (parallel: 4 Docker images)
-    │       └─► multi-arch (amd64 + arm64) → Docker Hub
-
----
-
-### Adım 7 — Scale-to-Zero Geri Dönüşünü İzle
-
-Hiçbir butona **2 dakika** basmayın. **Terminal A'da** şunu görürsünüz:
-
-```
-fraud-alert-service-...   1/1   Running     →   Terminating   →   (silindi)
-transaction-logger-...    1/1   Running     →   Terminating   →   (silindi)
-```
-
-Pod'lar kapanır, `kubectl get pods` çıktısı yeniden sadece `producer-api` ve `frontend` gösterir.  
-Sonraki işlemde pod tekrar sıfırdan ayağa kalkar — bu Knative'in **Scale-to-Zero** özelliğidir.
-
----
-
-### Adım 8 — curl ile Doğrudan API Testi (Opsiyonel)
-
-Tarayıcı olmadan terminal üzerinden de test edebilirsiniz:
-
-```bash
-# Önce port-forward başlat (ayrı bir terminal):
-kubectl port-forward svc/producer-api-service 8000:8000 -n banking-system
-
-# Standart işlem testi:
-curl -s -X POST http://localhost:8000/simulate \
-  -H "Content-Type: application/json" \
-  -d '{"transaction_type": "standard_eft", "payload": {"amount": 5000, "currency": "TRY"}}' | python -m json.tool
-
-# Fraud testi:
-curl -s -X POST http://localhost:8000/simulate \
-  -H "Content-Type: application/json" \
-  -d '{"transaction_type": "overseas_atm_withdrawal", "payload": {"amount": 75000, "currency": "USD"}}' | python -m json.tool
-```
-
-Başarılı yanıt şu şekilde görünür:
-
-```json
-{
-  "status": "accepted",
-  "event_type": "banking.suspicious",
-  "risk_level": "critical",
-  "sink": "http://banking-broker-ingress..."
-}
-```
-
-Ayrıca Swagger UI üzerinden de test edebilirsiniz: `http://localhost:8000/api/docs`
-
-

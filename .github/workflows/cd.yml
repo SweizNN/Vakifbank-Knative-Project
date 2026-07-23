@@ -190,7 +190,7 @@ jobs:
             # 1. Ensure Minikube cluster is running
             if ! minikube status &>/dev/null; then
               echo "⚠️ Minikube is not running. Starting Minikube..."
-              minikube start --driver=docker --cpus=4 --memory=4096 --kubernetes-version=v1.30.0
+              minikube start --driver=docker --force --cpus=4 --memory=4096 --kubernetes-version=v1.30.0
             else
               echo "✅ Minikube is running."
             fi
@@ -251,7 +251,7 @@ jobs:
             echo "🔌 Setting up Port-Forwarding for external access..."
             MINIKUBE_IP=$(minikube ip)
             docker rm -f frontend-proxy || true
-            docker run -d --name frontend-proxy --network host alpine/socat TCP-LISTEN:30080,fork,reuseaddr TCP:${MINIKUBE_IP}:30080
+            docker run -d --restart always --name frontend-proxy --network host alpine/socat TCP-LISTEN:30080,fork,reuseaddr TCP:${MINIKUBE_IP}:30080
 
             echo "=========================================================="
             echo " ✅ DEPLOYMENT SUCCESSFUL!"
