@@ -6,10 +6,6 @@
 #  ✓ Scale-to-Zero: İşlem yokken pod sayısı 0'a iner
 #  ✓ Scale-up: İlk event geldiğinde otomatik pod ayağa kalkar
 #  ✓ Knative Autoscaler (KPA): Knative'in kendi HPA'sı kullanılır
-#
-#  IMAGE: GitHub Actions tarafından güncellenir.
-#         Varsayılan değer: docker.io/<DOCKER_HUB_USER>/...
-#         deploy.yml workflow'u bu değeri patch eder.
 # ============================================================
 
 # ── Service 1: Transaction Logger ────────────────────────────────────────────
@@ -28,31 +24,24 @@ spec:
   template:
     metadata:
       annotations:
-        # ── Knative Autoscaler (KPA) Ayarları ──────────────────────────────
-        # Scale-to-zero için bekleme süresi
         autoscaling.knative.dev/scale-to-zero-pod-retention-period: "0s"
-        # Concurrent request sayısına göre scale
         autoscaling.knative.dev/target: "10"
-        # Maksimum pod sayısı (kısıtlı kaynak ortamı için)
         autoscaling.knative.dev/max-scale: "3"
-        # Minimum pod sayısı — 0 = scale-to-zero aktif
         autoscaling.knative.dev/min-scale: "0"
-        # Stabilization window (ani scale-down'ı önler)
         autoscaling.knative.dev/scale-down-delay: "30s"
-        force-update: "v3"
     spec:
-      # Knative varsayılan timeout (idle sonrası pod durdurma)
       timeoutSeconds: 300
       containers:
         - name: transaction-logger
-          # IMAGE: GitHub Actions tarafından güncellenir
-          # Format: docker.io/sweizn/transaction-logger:SHA
           image: docker.io/sweizn/transaction-logger:latest
-          imagePullPolicy: IfNotPresent    # Docker Hub'dan her zaman güncel image çek
+          imagePullPolicy: Always
           ports:
-            - name: http1          # HTTP/2 (Knative default)
+            - name: http1
               containerPort: 8080
               protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: banking-config
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
@@ -88,9 +77,7 @@ spec:
   template:
     metadata:
       annotations:
-        # ── Knative Autoscaler Ayarları ────────────────────────────────────
         autoscaling.knative.dev/scale-to-zero-pod-retention-period: "0s"
-        # Fraud servisi: daha agresif scale (her event önemli)
         autoscaling.knative.dev/target: "5"
         autoscaling.knative.dev/max-scale: "5"
         autoscaling.knative.dev/min-scale: "0"
@@ -99,13 +86,15 @@ spec:
       timeoutSeconds: 300
       containers:
         - name: fraud-alert
-          # IMAGE: GitHub Actions tarafından güncellenir
           image: docker.io/sweizn/fraud-alert:latest
-          imagePullPolicy: IfNotPresent    # Docker Hub'dan her zaman güncel image çek
+          imagePullPolicy: Always
           ports:
             - name: http1
               containerPort: 8080
               protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: banking-config
           env:
             - name: PYTHONUNBUFFERED
               value: "1"

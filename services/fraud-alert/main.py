@@ -114,7 +114,7 @@ async def receive_fraud_event(request: Request):
     # ── Idempotency Check (Broker Retry'larını Yoksay) ──
     if event_id in seen_events:
         logger.info("Duplicate event ignored: %s", event_id)
-        return PlainTextResponse(content="OK (Duplicate)", status_code=200)
+        return PlainTextResponse(content="", status_code=200)
     seen_events.add(event_id)
     # Bellek şişmesini önlemek için basit temizlik (1000'den fazlaysa boşalt)
     if len(seen_events) > 1000:
@@ -188,7 +188,7 @@ async def receive_fraud_event(request: Request):
     )
     print(f"{border}\n", flush=True)
 
-    return PlainTextResponse(content="FRAUD_ALERT_PROCESSED", status_code=status.HTTP_200_OK)
+    return PlainTextResponse(content="", status_code=status.HTTP_200_OK)
 
 @app.get("/health", summary="Health check")
 async def health():

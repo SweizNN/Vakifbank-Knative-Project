@@ -15,6 +15,11 @@
 # ==============================================================================
 set -euo pipefail
 
+# Windows Bash Compatibility
+if ! command -v kubectl &>/dev/null && command -v kubectl.exe &>/dev/null; then kubectl() { kubectl.exe "$@"; }; fi
+if ! command -v minikube &>/dev/null && command -v minikube.exe &>/dev/null; then minikube() { minikube.exe "$@"; }; fi
+
+
 CYAN='\033[0;36m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 RED='\033[0;31m'; BOLD='\033[1m'; NC='\033[0m'
 
@@ -46,12 +51,7 @@ echo -e "  Docker Hub User : ${CYAN}${DOCKER_HUB_USER}${NC}"
 echo -e "  Image Tag       : ${CYAN}${IMAGE_TAG}${NC}\n"
 
 # ── 1. Minikube Kontrol ───────────────────────────────────────────────────────
-log_step "Minikube durumu kontrol ediliyor"
-
-if ! minikube status &>/dev/null; then
-  log_error "Minikube çalışmıyor! Önce 'minikube start' komutunu çalıştır."
-fi
-log_success "Minikube aktif."
+log_step "Minikube durumu atlanıyor (kubectl üzerinden devam edilecek)"
 
 # ── 2. Temp Klasör ve YAML Kopyalama ─────────────────────────────────────────
 log_step "YAML dosyaları image tag ile hazırlanıyor"
@@ -82,26 +82,33 @@ log_success "YAML'lar güncellendi (${TMP_DIR})"
 # ── 3. Manifoları Deploy Et ───────────────────────────────────────────────────
 log_step "Kubernetes & Knative manifoları uygulanıyor"
 
+pushd "$TMP_DIR" > /dev/null
+
 log_info "Namespace..."
-kubectl apply -f "${TMP_DIR}/namespace.yaml"
+kubectl apply -f namespace.yaml
+
+log_info "ConfigMap..."
+kubectl apply -f configmap.yaml
 
 log_info "Broker..."
-kubectl apply -f "${TMP_DIR}/broker.yaml"
+kubectl apply -f broker.yaml
 
 log_info "Knative Services (scale-to-zero)..."
-kubectl apply -f "${TMP_DIR}/ksvc.yaml"
+kubectl apply -f ksvc.yaml
 
 log_info "Producer Deployment..."
-kubectl apply -f "${TMP_DIR}/producer-deployment.yaml"
+kubectl apply -f producer-deployment.yaml
 
 log_info "SinkBinding (K_SINK inject)..."
-kubectl apply -f "${TMP_DIR}/sinkbinding.yaml"
+kubectl apply -f sinkbinding.yaml
 
 log_info "Triggers (event routing)..."
-kubectl apply -f "${TMP_DIR}/triggers.yaml"
+kubectl apply -f triggers.yaml
 
 log_info "Frontend..."
-kubectl apply -f "${TMP_DIR}/frontend-deployment.yaml"
+kubectl apply -f frontend-deployment.yaml
+
+popd > /dev/null
 
 # ── 4. Rollout Bekle ──────────────────────────────────────────────────────────
 log_step "Producer rollout bekleniyor"
@@ -128,7 +135,7 @@ echo -e "\n${BOLD}Podlar:${NC}"
 kubectl get pods -n banking-system 2>/dev/null || true
 
 # ── 6. Erişim Bilgileri ───────────────────────────────────────────────────────
-MINIKUBE_IP=$(minikube ip 2>/dev/null || echo "N/A")
+MINIKUBE_IP=$(minikube.exe ip 2>/dev/null || minikube ip 2>/dev/null || echo "localhost")
 
 echo ""
 log_success "Deploy tamamlandı!"

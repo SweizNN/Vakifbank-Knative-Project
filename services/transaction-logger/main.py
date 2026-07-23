@@ -76,7 +76,7 @@ async def receive_event(request: Request):
     # ── Idempotency Check (Broker Retry'larını Yoksay) ──
     if event_id in seen_events:
         logger.info("Duplicate event ignored: %s", event_id)
-        return PlainTextResponse(content="OK (Duplicate)", status_code=200)
+        return PlainTextResponse(content="", status_code=200)
     seen_events.add(event_id)
     if len(seen_events) > 1000:
         seen_events.clear()
@@ -128,7 +128,7 @@ async def receive_event(request: Request):
         flush=True,
     )
 
-    return PlainTextResponse(content="OK", status_code=status.HTTP_200_OK)
+    return PlainTextResponse(content="", status_code=status.HTTP_200_OK)
 
 @app.get("/health", summary="Health check")
 async def health():

@@ -2,74 +2,104 @@
 # ==============================================================================
 #  scripts/setup-and-run.sh
 #  VakıfBank Knative — Tek Tıkla Kurulum ve İzleme
+#  Kullanım: bash ./scripts/setup-and-run.sh
 # ==============================================================================
 set -e
 
-# Windows Git Bash için .exe alias ayarları
-shopt -s expand_aliases
-if ! command -v kubectl &> /dev/null && command -v kubectl.exe &> /dev/null; then
-  alias kubectl="kubectl.exe"
+CYAN='\033[0;36m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+RED='\033[0;31m'; BOLD='\033[1m'; NC='\033[0m'
+
+# Windows Git Bash uyumluluğu (.exe wrappers)
+if ! command -v kubectl &>/dev/null && command -v kubectl.exe &>/dev/null; then
+  kubectl() { kubectl.exe "$@"; }; export -f kubectl
+fi
+if ! command -v minikube &>/dev/null && command -v minikube.exe &>/dev/null; then
+  minikube() { minikube.exe "$@"; }; export -f minikube
 fi
 
-CYAN='\033[0;36m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
+echo -e "\n${BOLD}${CYAN}╔══════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}${CYAN}║   VakıfBank Knative — Sistem Başlatılıyor  ║${NC}"
+echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════╝${NC}\n"
 
-echo -e "\n${BOLD}${CYAN}VakıfBank Knative — Otomatik Kurulum ve İzleme Başlıyor...${NC}\n"
+# ── 1. Knative (sadece ilk seferinde kurulur) ──────────────────────────────
+if ! kubectl get ns knative-serving &>/dev/null; then
+  echo -e "${YELLOW}[1/4] Knative Serving + Kourier kuruluyor (ilk kurulum)...${NC}"
+  kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.14.0/serving-crds.yaml
+  kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.14.0/serving-core.yaml
+  kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.14.0/kourier.yaml
+  kubectl patch configmap/config-network -n knative-serving \
+    --type merge --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
+  echo -e "${YELLOW}[1/4] Knative Eventing kuruluyor...${NC}"
+  kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.14.0/eventing-crds.yaml
+  kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.14.0/eventing-core.yaml
+  kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.14.0/in-memory-channel.yaml
+  kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.14.0/mt-channel-broker.yaml
+  echo -e "${GREEN}[1/4] Knative kuruldu!${NC}"
+else
+  echo -e "${GREEN}[1/4] Knative zaten kurulu — atlanıyor.${NC}"
+fi
 
-# 1. Knative Kurulumu
-echo -e "${YELLOW}Knative ve Kourier (Network) Kuruluyor...${NC}"
-kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.14.0/serving-crds.yaml
-kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.14.0/serving-core.yaml
-kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.14.0/kourier.yaml
-kubectl patch configmap/config-network -n knative-serving \
-  --type merge --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
+# ── 2. Yerel kodları Minikube'a derle ──────────────────────────────────────
+echo -e "${YELLOW}[2/4] Yerel kodlar derleniyor...${NC}"
+LOCAL_TAG="local-$(date +%s)"
+minikube image build -t sweizn/frontend:${LOCAL_TAG} ./frontend
+minikube image build -t sweizn/producer-api:${LOCAL_TAG} ./producer
+minikube image build -t sweizn/transaction-logger:${LOCAL_TAG} ./services/transaction-logger
+minikube image build -t sweizn/fraud-alert:${LOCAL_TAG} ./services/fraud-alert
+echo -e "${GREEN}[2/4] Derleme tamamlandı!${NC}"
 
-echo -e "${YELLOW}Knative Eventing ve In-Memory Channel Kuruluyor...${NC}"
-kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.14.0/eventing-crds.yaml
-kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.14.0/eventing-core.yaml
-kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.14.0/in-memory-channel.yaml
-kubectl apply -f https://github.com/knative/eventing/releases/download/knative-v1.14.0/mt-channel-broker.yaml
-
-# 2. Proje Kurulumu
-echo -e "${YELLOW}Banking System Manifestoları Kuruluyor...${NC}"
+# ── 3. Kubernetes manifestolarını uygula ───────────────────────────────────
+echo -e "${YELLOW}[3/4] Kubernetes manifestoları uygulanıyor...${NC}"
 kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/broker.yaml
-kubectl apply -f k8s/ksvc.yaml
-kubectl apply -f k8s/producer-deployment.yaml
+
+# Dinamik tag ataması (cache sorununu çözer)
+sed "s/:latest/:${LOCAL_TAG}/g" k8s/ksvc.yaml | kubectl apply -f -
+sed "s/:latest/:${LOCAL_TAG}/g" k8s/producer-deployment.yaml | kubectl apply -f -
+sed "s/:latest/:${LOCAL_TAG}/g" k8s/frontend-deployment.yaml | kubectl apply -f -
+
 kubectl apply -f k8s/sinkbinding.yaml
 kubectl apply -f k8s/triggers.yaml
-kubectl apply -f k8s/frontend-deployment.yaml
 
-echo -e "\n${GREEN}Tüm manifestolar uygulandı. İzleme moduna geçiliyor...${NC}"
-echo -e "${CYAN}(Durdurmak için Ctrl+C'ye basabilirsiniz)${NC}\n"
+# Podların hazır olmasını bekle
+echo -e "${YELLOW}Podlar hazır olana kadar bekleniyor...${NC}"
+kubectl rollout status deploy/frontend -n banking-system --timeout=120s
+kubectl rollout status deploy/producer-api -n banking-system --timeout=120s
+echo -e "${GREEN}[3/4] Tüm manifestolar uygulandı!${NC}"
 
-# Ctrl+C yapıldığında arka plandaki işlemleri de kapatması için trap
-trap 'echo -e "\n${RED}İşlemler durduruluyor...${NC}"; kill $(jobs -p) 2>/dev/null; exit' SIGINT SIGTERM
+# ── 4. Port-forward başlat ─────────────────────────────────────────────────
+echo -e "${YELLOW}[4/4] Port-forwarding başlatılıyor...${NC}"
 
-# 3. Arka Planda Port-Forward
-echo -e "${BOLD}Port-Forwarding başlatılıyor...${NC}"
-kubectl port-forward svc/frontend-service 3000:80 -n banking-system &
-kubectl port-forward svc/producer-api-service 8000:8000 -n banking-system &
+# Önce varsa eski port-forward işlemlerini temizle
+pkill -f "kubectl port-forward" 2>/dev/null || true
+sleep 1
 
-# Biraz bekle (Port-forward'ın oturması için)
-sleep 2
+# Otomatik yeniden bağlanmalı port-forward döngüleri
+(while true; do kubectl port-forward svc/frontend-service 3000:80 -n banking-system 2>/dev/null || true; sleep 2; done) &
+(while true; do kubectl port-forward svc/producer-api-service 8000:8000 -n banking-system 2>/dev/null || true; sleep 2; done) &
 
-# 4. İzleme Terminallerini Başlat (Windows PowerShell üzerinden 3 ayrı pencere açar)
-echo -e "\n${BOLD}================ İzleme Ekranı =================${NC}"
-echo -e "🌐 Frontend Arayüzü : http://localhost:3000"
-echo -e "📖 Producer API Docs: http://localhost:8000/api/docs"
-echo -e "${BOLD}================================================${NC}\n"
+sleep 3
+echo -e "${GREEN}[4/4] Port-forwarding aktif!${NC}"
 
-echo -e "${YELLOW}Logları izlemek için 3 yeni PowerShell penceresi açılıyor...${NC}\n"
-echo -e "${CYAN}Lütfen açılan siyah/mavi pencereleri kapatmayın ve yan yana dizin.${NC}\n"
+# ── Bilgi Ekranı ───────────────────────────────────────────────────────────
+echo -e "\n${BOLD}${GREEN}╔══════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}${GREEN}║           SİSTEM HAZIR!                    ║${NC}"
+echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════╝${NC}"
+echo -e "  🌐 Frontend Arayüzü : ${CYAN}http://localhost:3000${NC}"
+echo -e "  📖 Producer API Docs: ${CYAN}http://localhost:8000/api/docs${NC}"
+echo -e ""
+echo -e "${YELLOW}Log izleme pencereleri açılıyor...${NC}"
+echo -e "${CYAN}Bu terminali KAPATMA — bağlantı bu terminalde çalışıyor.${NC}"
+echo -e "${CYAN}Durdurmak için Ctrl+C yapın.${NC}\n"
 
-# Pod değişimleri
-cmd.exe /c start powershell -NoExit -Command "[console]::BackgroundColor='Black'; [console]::ForegroundColor='White'; Clear-Host; Write-Host '--- TERMINAL A (Pod İzleme) ---' -ForegroundColor Cyan; kubectl get pods -n banking-system -w"
+# İzleme pencerelerini aç
+cmd.exe /c start powershell -NoExit -Command "Write-Host '=== POD IZLEME ===' -ForegroundColor Cyan; kubectl get pods -n banking-system -w"
+cmd.exe /c start powershell -NoExit -Command "Write-Host '=== TX LOGGER ===' -ForegroundColor Yellow; while (\$true) { kubectl logs -n banking-system -l serving.knative.dev/service=transaction-logger-service --prefix -f 2>\$null; Start-Sleep -Seconds 2 }"
+cmd.exe /c start powershell -NoExit -Command "Write-Host '=== FRAUD ALERT ===' -ForegroundColor Red; while (\$true) { kubectl logs -n banking-system -l serving.knative.dev/service=fraud-alert-service --prefix -f 2>\$null; Start-Sleep -Seconds 2 }"
 
-# Transaction logger
-cmd.exe /c start powershell -NoExit -Command "[console]::BackgroundColor='Black'; [console]::ForegroundColor='White'; Clear-Host; Write-Host '--- TERMINAL B (Standart Islemler) ---' -ForegroundColor Yellow; while (\$true) { kubectl logs -n banking-system -l serving.knative.dev/service=transaction-logger-service --prefix -f; Start-Sleep -Seconds 2 }"
+# Ctrl+C ile her şeyi temizle
+trap 'echo -e "\n${RED}Durduruluyor...${NC}"; pkill -f "kubectl port-forward" 2>/dev/null; exit 0' SIGINT SIGTERM
 
-# Fraud alert
-cmd.exe /c start powershell -NoExit -Command "[console]::BackgroundColor='Black'; [console]::ForegroundColor='White'; Clear-Host; Write-Host '--- TERMINAL C (Fraud - Supheli Islemler) ---' -ForegroundColor Red; while (\$true) { kubectl logs -n banking-system -l serving.knative.dev/service=fraud-alert-service --prefix -f; Start-Sleep -Seconds 2 }"
-
-# Ana script sadece port-forward işlemlerini tutar
+# Port-forward döngüsü çalışmaya devam etsin
 wait

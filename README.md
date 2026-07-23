@@ -50,7 +50,8 @@
 Vakifbank-Knative-Project/
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml              # CI/CD Pipeline (GitHub Actions)
+│       ├── deploy.yml              # CI Pipeline (GitHub Actions)
+│       └── cd.yml                  # Remote CD Pipeline (DigitalOcean Droplet Deploy)
 │
 ├── frontend/                       # Simülasyon Web Arayüzü
 │   ├── index.html                  # Premium dark-mode UI
@@ -76,6 +77,7 @@ Vakifbank-Knative-Project/
 │
 ├── k8s/                            # Kubernetes & Knative Manifestoları
 │   ├── namespace.yaml              # banking-system namespace
+│   ├── configmap.yaml              # Centralized environment ConfigMap
 │   ├── broker.yaml                 # Knative InMemory Broker
 │   ├── sinkbinding.yaml            # K_SINK otomatik inject
 │   ├── triggers.yaml               # 3 adet event routing trigger

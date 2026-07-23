@@ -27,13 +27,15 @@ spec:
     spec:
       containers:
         - name: frontend
-          # IMAGE: GitHub Actions tarafından güncellenir
           image: docker.io/sweizn/frontend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 80
               protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: banking-config
           readinessProbe:
             httpGet:
               path: /nginx-health
@@ -48,7 +50,7 @@ spec:
             periodSeconds: 15
 
 ---
-# ── Service (NodePort — Minikube erişimi için) ────────────────────────────────
+# ── Service (NodePort — DigitalOcean Droplet IP: 134.122.61.206:30080) ─────────
 apiVersion: v1
 kind: Service
 metadata:
@@ -65,6 +67,6 @@ spec:
     - name: http
       port: 80
       targetPort: 80
-      nodePort: 30080          # Sabit NodePort: minikube ip:30080
+      nodePort: 30080          # NodePort: http://134.122.61.206:30080
       protocol: TCP
   type: NodePort

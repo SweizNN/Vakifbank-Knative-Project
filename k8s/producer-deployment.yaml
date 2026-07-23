@@ -29,19 +29,19 @@ spec:
         app: producer-api
         app.kubernetes.io/name: producer-api
       annotations:
-        # Pod yeniden başlatma politikası (SinkBinding güncelleme için)
         kubectl.kubernetes.io/restartedAt: ""
     spec:
       containers:
         - name: producer-api
-          # IMAGE: GitHub Actions tarafından güncellenir
           image: docker.io/sweizn/producer-api:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8000
               protocol: TCP
-          # K_SINK burada tanımlanmaz! SinkBinding inject eder.
+          envFrom:
+            - configMapRef:
+                name: banking-config
           env:
             - name: PYTHONUNBUFFERED
               value: "1"

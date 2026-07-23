@@ -1,0 +1,18 @@
+# ============================================================
+#  configmap.yaml
+#  VakıfBank Knative — Centralized Environment Configuration
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: banking-config
+  namespace: banking-system
+  labels:
+    app.kubernetes.io/name: banking-config
+    app.kubernetes.io/part-of: vakifbank-knative-demo
+data:
+  ENVIRONMENT: "production"
+  APP_HOST: "0.0.0.0"
+  PUBLIC_IP: "134.122.61.206"
+  PRODUCER_API_URL: "/api"
+  LOG_LEVEL: "INFO"
