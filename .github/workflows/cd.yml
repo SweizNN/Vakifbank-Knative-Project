@@ -232,15 +232,18 @@ jobs:
             kubectl apply -f k8s/configmap.yaml
             kubectl apply -f k8s/broker.yaml
 
-            # 6. Apply parameterized workloads with current image SHA tag
+            # 6. Apply Eventing bindings & triggers FIRST (to ensure Webhook catches Pod creation)
+            kubectl apply -f k8s/sinkbinding.yaml
+            kubectl apply -f k8s/triggers.yaml
+
+            # 7. Apply parameterized workloads with current image SHA tag
             echo "🐳 Deploying Services with Image Tag: ${IMAGE_TAG}..."
             sed "s/:latest/:${IMAGE_TAG}/g" k8s/ksvc.yaml | kubectl apply -f -
             sed "s/:latest/:${IMAGE_TAG}/g" k8s/producer-deployment.yaml | kubectl apply -f -
             sed "s/:latest/:${IMAGE_TAG}/g" k8s/frontend-deployment.yaml | kubectl apply -f -
 
-            # 7. Apply Eventing bindings & triggers
-            kubectl apply -f k8s/sinkbinding.yaml
-            kubectl apply -f k8s/triggers.yaml
+            # 7.5 Force Restart Producer to guarantee K_SINK injection (if updating an existing deployment)
+            kubectl rollout restart deployment/producer-api -n banking-system || true
 
             # 8. Verify Rollout Status
             echo "⏳ Waiting for pod rollout..."

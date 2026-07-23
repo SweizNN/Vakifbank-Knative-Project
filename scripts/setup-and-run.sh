@@ -54,13 +54,17 @@ kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/broker.yaml
 
+# Eventing mekanizmaları (Pod'lar yaratılmadan ÖNCE uygulanmalı ki K_SINK enjekte edilebilsin)
+kubectl apply -f k8s/sinkbinding.yaml
+kubectl apply -f k8s/triggers.yaml
+
 # Dinamik tag ataması (cache sorununu çözer)
 sed "s/:latest/:${LOCAL_TAG}/g" k8s/ksvc.yaml | kubectl apply -f -
 sed "s/:latest/:${LOCAL_TAG}/g" k8s/producer-deployment.yaml | kubectl apply -f -
 sed "s/:latest/:${LOCAL_TAG}/g" k8s/frontend-deployment.yaml | kubectl apply -f -
 
-kubectl apply -f k8s/sinkbinding.yaml
-kubectl apply -f k8s/triggers.yaml
+# Garanti olsun diye Producer'ı restart et
+kubectl rollout restart deployment/producer-api -n banking-system || true
 
 # Podların hazır olmasını bekle
 echo -e "${YELLOW}Podlar hazır olana kadar bekleniyor...${NC}"
