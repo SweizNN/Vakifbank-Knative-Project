@@ -12,6 +12,7 @@ metadata:
   labels:
     app.kubernetes.io/name: standard-tx-trigger
     app.kubernetes.io/part-of: vakifbank-knative-demo
+    force-update: "1"
 spec:
   broker: banking-broker
   filter:
