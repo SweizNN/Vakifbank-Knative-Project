@@ -250,7 +250,9 @@ jobs:
             # 9. Setup Port-Forwarding for External Access
             echo "🔌 Setting up Port-Forwarding for external access..."
             pkill -f "kubectl port-forward.*frontend-service" || true
-            nohup kubectl port-forward --address 0.0.0.0 svc/frontend-service 30080:80 -n banking-system > /dev/null 2>&1 &
+            sleep 2
+            nohup kubectl port-forward --address 0.0.0.0 svc/frontend-service 30080:80 -n banking-system < /dev/null > /dev/null 2>&1 &
+            sleep 3
 
             echo "=========================================================="
             echo " ✅ DEPLOYMENT SUCCESSFUL!"
