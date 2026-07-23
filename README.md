@@ -92,7 +92,34 @@ Vakifbank-Knative-Project/
 
 ---
 
-## 🚀 Hızlı Başlangıç (Minikube)
+## 🌍 Canlı Ortam (DigitalOcean Prodüksiyon)
+
+Sistem, GitHub Actions üzerinden tam otomatik CD (Continuous Deployment) ile DigitalOcean sunucunuzda (IP: `134.122.61.206`) çalışmak üzere yapılandırılmıştır.
+
+### Sistemi Canlıya Alma
+Sistemin güncellenmesi ve canlıya alınması için **sunucuda manuel hiçbir işlem yapmanıza gerek yoktur**. Kodlarınızı GitHub'a gönderdiğinizde her şey otomatik gerçekleşir:
+```bash
+git add .
+git commit -m "update"
+git push origin main
+```
+
+### Canlı Sistemi Test Etme ve İzleme
+Uygulamanızın canlı arayüzüne her zaman şu adresten erişebilirsiniz:
+👉 **[http://134.122.61.206:30080](http://134.122.61.206:30080)**
+
+Sunucu üzerinde arka planda dönen olayları (Knative Scale-to-Zero tetiklenmeleri, loglar vb.) izlemek için sunucunuza SSH ile bağlanın (`ssh root@134.122.61.206`) ve aşağıdaki komutları kullanın:
+
+- **Podların otomatik çoğalıp kapanmasını izlemek için:** 
+  `kubectl get pods -n banking-system -w`
+- **İşlem loglarını canlı (tail) izlemek için:** 
+  `kubectl logs -n banking-system -l serving.knative.dev/service=transaction-logger-service --prefix -f`
+- **Şüpheli (Fraud) işlem uyarısı loglarını izlemek için:** 
+  `kubectl logs -n banking-system -l serving.knative.dev/service=fraud-alert-service --prefix -f`
+
+---
+
+## 💻 Yerel Geliştirme (Kendi Bilgisayarınızda Hızlı Başlangıç)
 
 Sistemi ayağa kaldırmak ve test etmek için iki seçeneğiniz vardır: Otomatik veya Manuel.
 Öncelikle aşağıdaki araçların sisteminizde yüklü olduğundan emin olun:
