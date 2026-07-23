@@ -178,7 +178,8 @@ async def simulate_transaction(request: SimulateRequest):
 
     # CloudEvent oluştur
     event = build_cloud_event(tx_type, request.payload)
-    headers, body = to_structured(event)
+    from cloudevents.http import to_binary
+    headers, body = to_binary(event)
 
     logger.info(
         "CloudEvent gönderiliyor | type=%s | risk=%s | sink=%s | event_id=%s",

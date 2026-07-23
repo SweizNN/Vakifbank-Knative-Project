@@ -44,7 +44,7 @@ spec:
                 name: banking-config
           env:
             - name: K_SINK
-              value: "http://broker-ingress.knative-eventing.svc.cluster.local/banking-system/default"
+              value: "http://broker-ingress.knative-eventing.svc.cluster.local/banking-system/banking-broker"
             - name: PYTHONUNBUFFERED
               value: "1"
             - name: PYTHONDONTWRITEBYTECODE
